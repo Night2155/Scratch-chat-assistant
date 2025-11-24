@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>Firebase Storage 測試工具</title>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input { width: 400px; padding: 5px; font-size: 14px; }
+    button { padding: 6px 12px; font-size: 14px; margin-left: 8px; }
+    a { display: block; margin-top: 10px; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h2>🧪 Firebase Storage 下載連結測試</h2>
+
+  <label for="pathInput">輸入 Storage 路徑：</label><br>
+  <input type="text" id="pathInput" placeholder="例如 sb3_files/基礎任務一.sb3" />
+  <button onclick="getDownloadLink()">取得連結</button>
+
+  <p id="status"></p>
+  <div id="result"></div>
+
+  <script>
+    // 初始化 Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyBYg4xnd5il5QcsYfJu1Zj89wdoYHqjlAo",
+      authDomain: "scratch-ct-chatbot-2025.firebaseapp.com",
+      projectId: "scratch-ct-chatbot-2025",
+      storageBucket: "scratch-ct-chatbot-2025.firebasestorage.app",
+      messagingSenderId: "890112360772",
+      appId: "1:890112360772:web:7b9911703cbb6f8b171711"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const storage = firebase.storage();
+
+    async function getDownloadLink() {
+      const path = document.getElementById("pathInput").value.trim();
+      const statusEl = document.getElementById("status");
+      const resultEl = document.getElementById("result");
+      resultEl.innerHTML = "";
+      if (!path) {
+        statusEl.textContent = "❗ 請輸入 Storage 檔案路徑";
+        return;
+      }
+
+      statusEl.textContent = "⏳ 正在取得下載連結...";
+      try {
+        const ref = storage.ref(path);
+        const url = await ref.getDownloadURL();
+        statusEl.textContent = "✅ 成功取得連結：";
+        resultEl.innerHTML = `<a href="${url}" target="_blank">${url}</a>`;
+      } catch (err) {
+        statusEl.textContent = "❌ 錯誤：" + err.message;
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>

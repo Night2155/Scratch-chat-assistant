@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>教師任務檢視頁</title>
+  <link rel="stylesheet" href="css/teacher.css" />
+</head>
+<body>
+  <!-- ✅ 導覽列 -->
+  <div class="navbar">
+    <div class="navbar-left">
+      <img src="images/login.png" alt="Scratch Lab Logo" class="logo-img" />
+      <span class="title">學生任務狀況查看</span>
+    </div>
+    <div class="nav-tabs">
+      <span class="tab active">學生任務完成狀況</span>
+    </div>
+    <div class="navbar-right">
+      <span class="teacher-name" id="teacherName">載入中...</span>
+    </div>
+  </div>
+
+  <!-- ✅ 加上 main-content 包住下方內容並避開導覽列 -->
+  <div class="main-content">
+    <div class="teacher-container">
+      <div class="student-list" id="studentList">
+        <div class="student-item">
+          <img src="images/login.png" class="student-avatar" alt="avatar" />
+          <div class="student-info">
+            <div class="student-name">student1</div>
+            <div class="student-meta">3A 班｜完成 1 / 3</div>
+            <div class="progress-bar">
+              <div class="progress" style="width: 33%;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="student-item">
+          <img src="images/login.png" class="student-avatar" alt="avatar" />
+          <div class="student-info">
+            <div class="student-name">student2</div>
+            <div class="student-meta">3A 班｜完成 1 / 3</div>
+            <div class="progress-bar">
+              <div class="progress" style="width: 33%;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="student-item">
+          <img src="images/login.png" class="student-avatar" alt="avatar" />
+          <div class="student-info">
+            <div class="student-name">student3</div>
+            <div class="student-meta">3A 班｜完成 1 / 3</div>
+            <div class="progress-bar">
+              <div class="progress" style="width: 33%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="task-details" id="taskDetails">
+        <h2>請選擇學生以查看任務狀況</h2>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const name = urlParams.get("name") || "老師";
+    document.getElementById("teacherName").textContent = name + "老師您好 !";
+    // ✅ 點選學生切換任務內容
+    document.querySelectorAll(".student-item").forEach(item => {
+      item.addEventListener("click", () => {
+        document.getElementById("taskDetails").innerHTML = `
+          <h2>任務狀況 - ${item.innerText}</h2>
+          <div class="task-card">
+            <h3>任務一：角色移動</h3>
+            <p class="task-status">已完成</p>
+            <p>完成時間：2025-06-11 15:00</p>
+          </div>
+          <div class="task-card">
+            <h3>任務二：控制重複</h3>
+            <p class="task-status pending">尚未完成</p>
+          </div>
+        `;
+      });
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>任務選擇頁面</title>
+  <link rel="stylesheet" href="css/tasks.css">
+  <script type="module" src="tasks.js" defer></script>
+</head>
+<body>
+
+  <!-- ✅ 上方導覽列 -->
+  <div class="navbar">
+    <!-- LOGO -->
+    <div class="logo">
+      <a href="/logout">
+        <img src="images/login.png" alt="Logo" />
+      </a>
+    </div>
+
+    <!-- ✅ 分類按鈕 -->
+    <div class="nav-tabs">
+      <span class="tab active" data-category="basic" onclick="showCategory(this)">基礎題</span>
+      <span class="tab" data-category="advanced" onclick="showCategory(this)">進階題</span>
+    </div>
+
+    <!-- 使用者資訊 -->
+    <a class="user-info" id="userInfo">使用者資訊載入中...</a>
+
+  </div>
+
+  <!-- ✅ 任務選擇區塊 -->
+  <div class="task-wrapper">
+    <h2>請選擇你的任務</h2>
+    <!-- ✅ 任務區：從 JS 動態生成 -->
+    <div id="taskContainer" class="task-group"></div>
+
+  </div>
+</body>
+</html>

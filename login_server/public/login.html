@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>登入頁面</title>
+  <!-- 引入 CSS 樣式 -->
+  <link rel="stylesheet" href="css/login.css" />
+  <script type="text/script" src="server.js"></script>
+  <script src="login.js" defer></script>
+</head>
+<body>
+
+  <!-- 登入頁面的整體外框 -->
+  <div class="login-wrapper">
+
+    <!-- 登入頁的白色卡片區塊 -->
+    <!-- <div class="login-box"> -->
+
+      <!-- 左邊圖示區塊 -->
+      <div class="login-left">
+        <!-- 登入示意圖片 -->
+        <img src="images/login.png" alt="Login Icon" />
+      </div>
+
+      <!-- 右邊登入表單區塊 -->
+      <div class="login-right">
+        <h1>歡迎登入</h1>
+
+        <!-- 登入表單 -->
+        <form id="loginForm" method="post">
+          <!-- 帳號 -->
+          <div class="input-group">
+            <input type="text" name="username" id="username" placeholder="帳號" required />
+          </div>
+
+          <!-- 密碼 -->
+          <div class="input-group">
+            <input type="password" name="password" id="password" placeholder="密碼" required />
+          </div>
+
+          <!-- 使用者身分選擇 -->
+          <div class="input-group">
+            <select id="roleSelect" required>
+              <option value="student">我是學生</option>
+              <option value="teacher">我是老師</option>
+            </select>
+          </div>
+
+          <!-- 登入按鈕 -->
+          <button type="submit" class="login-btn">登入</button>
+          <p class="lab-name">MMN Lab 2025</p>
+        </form>
+        
+      </div>
+    </div>
+  </div>
+  <div id="errorBox" class="error-box error-popup hidden">
+    <div class="error-icon">✖</div>
+    <div class="error-message">帳號或密碼錯誤，請再試一次</div>
+  </div>
+</body>
+</html>

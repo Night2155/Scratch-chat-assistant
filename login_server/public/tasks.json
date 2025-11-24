@@ -1,0 +1,24 @@
+{
+  "basic": [
+    {
+      "id": "task1",
+      "title": "任務一：角色移動",
+      "desc": "控制角色前後左右移動",
+      "img": "login.png"
+    },
+    {
+      "id": "task2",
+      "title": "任務二：對話設計",
+      "desc": "讓角色與使用者互動說話",
+      "img": "login.png"
+    }
+  ],
+  "advanced": [
+    {
+      "id": "taskA",
+      "title": "任務A：感應互動",
+      "desc": "根據點擊或鍵盤觸發動畫",
+      "img": "login.png"
+    }
+  ]
+}

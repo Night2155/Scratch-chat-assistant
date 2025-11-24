@@ -1,0 +1,146 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(to right, #8e2de2, #4a00e0);
+  height: 100vh;
+}
+
+/* ✅ 導覽列樣式 */
+.navbar {
+  position: fixed;
+  top: 20px;               /* ✅ 往下移一點，讓圓角不貼頂部 */
+  left: 50%;
+  transform: translateX(-50%);  /* ✅ 水平置中 */
+  width: 90%;
+  height: 60px;
+  background: white;
+  border-radius: 12px;     /* ✅ 圓角設定 */
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 30px;
+  z-index: 999;
+}
+
+.logo img {
+  height: 100px;
+  cursor: pointer;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 20px;
+}
+
+.tab {
+  cursor: pointer;
+  font-weight: bold;
+  color: #4a00e0;
+  font-size: 20px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.tab.active {
+  background: #4a00e0;
+  color: white;
+  border-radius: 6px;
+}
+
+.tab:hover {
+  background: #eee;
+}
+
+.user-info {
+  font-size: 20px;
+  color:#333;
+  margin-right: 50px; /* ✅ 往左移動 */
+}
+
+/* ✅ 任務卡片區塊 */
+.task-wrapper {
+  margin-top: 100px;
+  background: white;
+  padding: 40px 60px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  text-align: center;
+  width: 700px;
+  max-width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.task-wrapper h2 {
+  color: #333;
+  margin-bottom: 30px;
+}
+
+.task-grid {
+  display: flex;
+  flex-direction: column;  /* ✅ 改為垂直排列 */
+  gap: 20px;
+  align-items: center;
+}
+
+.task-card {
+  display: flex;
+  align-items: center;
+  background: #f7f7f7;
+  border-radius: 12px;
+  padding: 16px;
+  width: 90%;
+  max-width: 700px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  gap: 20px;
+
+  /* ✅ 加這一行：每張卡片下方加距離 */
+  margin-bottom: 20px;
+}
+
+.task-card:hover {
+  transform: scale(1.05); /*  */
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+/* 圖片設定 */
+.task-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* 文字區塊 */
+.task-content {
+  flex: 1;
+  text-align: left;
+}
+
+.task-content h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #4a00e0;
+}
+
+.task-content hr {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin: 8px 0;
+}
+
+.task-content p {
+  margin: 0;
+  font-size: 14px;
+  color: #444;
+}
+
+.desc-text {
+  white-space: pre-wrap; /* ✅ 讓換行與空格有效 */
+  line-height: 1.6;       /* ✅ 行距較舒服 */
+}

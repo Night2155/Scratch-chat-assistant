@@ -1,0 +1,162 @@
+/* 整體背景與置中設定 */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(to right, #8e2de2, #4a00e0); /* 紫色漸層背景 */
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 登入頁面主框 */
+.login-wrapper {
+  display: flex;
+  width: 1000px;
+  max-width: 95%;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+/* 左邊圖片欄 */
+.login-left {
+  flex: 1;
+  background: #f7f7f7;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px;
+}
+
+.login-left img {
+  width: 90%;
+  max-width: 400px;
+}
+
+/* 右邊表單欄 */
+.login-right {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-right h2 {
+  margin-bottom: 30px;
+  color: #333;
+  font-weight: bold;
+}
+
+/* 輸入框 */
+/* input[type="text"],
+input[type="password"] {
+  width: 300px;
+  max-width: 100%;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-radius: 25px;
+  border: none;
+  background: #eee;
+  font-size: 20px;
+} */
+
+/* 按鈕樣式 */
+button {
+  width: 100%;
+  background: #28a745;
+  color: white;
+  padding: 12px;
+  font-size: 16px;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #218838;
+}
+.lab-name {
+  color: silver;
+  text-align: center;
+}
+
+/* ✅ 錯誤浮出視窗 */
+.error-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  background: #fbeaea;
+  border: 2px solid #e74c3c;
+  padding: 20px 30px;
+  border-radius: 12px;
+  color: #c0392b;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* 隱藏用 */
+.hidden {
+  display: none;
+}
+
+/* 叉叉圖示 */
+.error-icon {
+  font-size: 24px;
+  animation: popIn 0.4s ease-in-out;
+}
+
+/* 淡入動畫 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, -60%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* 彈跳動畫 */
+@keyframes popIn {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+select {
+  appearance: none; 
+}
+
+.input-group {
+  width: 300px;
+  max-width: 100%;
+}
+
+.input-group input,
+.input-group select {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 25px;
+  border: none;
+  background: #eee;
+  font-size: 20px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.input-group select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url('data:image/svg+xml;utf8,<svg fill="%23666" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 16px;
+}

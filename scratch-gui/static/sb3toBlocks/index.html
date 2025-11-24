@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!-- saved from url=(0055)http://techslides.com/demos/archive/archive-viewer.html -->
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
+
+    <title>sb3toBlocks</title>
+
+</head>
+
+<body id="drag">
+
+    <nav class="navbar navbar-light bg-light">
+        <a class="navbar-brand" href="#">sb3toBlocks</a>
+    </nav>
+    <div class="container mt-5">
+        <div class="row justify-content-md-center">
+            <div class="col-8">
+                <div class="jumbotron jumbotron-fluid">
+                    <div class="container text-center">
+                        <h1 class="display-4" id="title">sb3toBlocks</h1>
+                        <div id="afterInput">
+                            <span class="badge badge-primary">scratch only</span>
+                            <p class="lead mt-5">直接拖拉欲轉換之檔案到此</p>
+                            <p class="lead mt-5">完成後會直接下載檔案</p>
+                            <input type="file" id="zipinput" hidden>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="row justify-content-md-center" id="showTxt" style="display: none;">
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label for="beforeTxt">專案程式碼</label>
+                            <code id="sb3blocks"></code>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label for="beforeTxt">專案程式碼</label>
+                            <textarea class="form-control" id="sb3blockscode" rows="30"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript" src="./assets/jquery-3.4.1.js"></script>
+    <script src="https://s3blocks.github.io/js/s3blocks.min.js"></script>
+    <script type="text/javascript" src="./assets/zip.js"></script>
+    <script type="text/javascript" src="./assets/main.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="google" value="notranslate">
+    <link rel="shortcut icon" href="static/favicon.ico">
+    <title><%= htmlWebpackPlugin.options.title %></title>
+
+    <style>
+      /* 預設隱藏 React 根節點，等 script3.js 載入完成再顯示 */
+      #app, #react-root { 
+          opacity: 0; 
+          transition: opacity 0.5s ease; 
+      }
+
+      /* 靜態 Loading 遮罩樣式 */
+      #static-loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        color: white;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+
+      .static-loader {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #4c97ff; /* Scratch Blue */
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 15px;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+
+    <% if (htmlWebpackPlugin.options.sentryConfig) { %>
+        <!-- Sentry error logging to help with finding bugs -->
+        <script src="https://cdn.ravenjs.com/3.22.1/raven.min.js" crossorigin="anonymous"></script>
+        <script>
+            Raven.config(<%= htmlWebpackPlugin.options.sentryConfig %>).install();
+        </script>
+        <!-- /Sentry -->
+    <% } %>
+  </head>
+  <body>
+    <div id="static-loading-overlay">
+      <div class="static-loader"></div>
+      <div id="static-loading-text">系統載入中，請稍候...</div>
+    </div>
+  </body>
+</html>
