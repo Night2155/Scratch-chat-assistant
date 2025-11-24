@@ -21,14 +21,14 @@ let flag = false;
 window.getFlag = () => flag;
 
 // 3. 提供給 React 呼叫的 hook：sb3 載入成功之後叫這個
-window.onSb3Loaded = function () {
-    flag = true;
-    console.log('[script3] sb3 載入成功，flag 已設為 true');
-    // 載入完成 → 關掉 loading 遮罩
-    if (window.hideLoading) {
-        window.hideLoading();
-    }
-};
+// window.onSb3Loaded = function () {
+//     flag = true;
+//     console.log('[script3] sb3 載入成功，flag 已設為 true');
+//     // 載入完成 → 關掉 loading 遮罩
+//     if (window.hideLoading) {
+//         window.hideLoading();
+//     }
+// };
 // ===============================================
 
 // 每五分鐘儲存專案

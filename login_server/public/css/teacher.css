@@ -109,33 +109,58 @@ body {
   display: flex;
   padding: 2rem;
   margin: 0 20px;
-  gap: 2rem; /* ✅ 增加左右區塊間的空隙 */
+  gap: 1.5rem; /* ✅ 增加左右區塊間的空隙 */
   height: 75vh; /* ✅ 統一這一層的高度 */
   align-items: stretch; /* ✅ 讓子項自動等高！ */
 }
 
+/* 篩選器區域 */
+.list-filter {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  background-color: #fff;
+}
+
+.class-select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* 調整 .student-list 為單純的列表容器 */
 .student-list {
+  flex: 1;            /* 佔滿剩餘高度 */
+  overflow-y: auto;   /* 只有列表部分滾動 */
+  padding: 10px;
+  gap: 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 1rem;
+  /* 移除原本這裡的 background, border-radius, box-shadow, flex 等屬性 */
+}
+
+.student-list-container {
+  display: flex;
+  flex-direction: column;
   background: white;
   border-radius: 1rem;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
-  overflow-y: auto;
-  flex: 0 0 280px; /* 不放大不縮小，固定寬度 */
+  flex: 0 0 220px; /* 固定左側寬度 */
+  overflow: hidden; /* 讓圓角不被內部元素切掉 */
 }
 
 .student-item {
   background-color: #f9f9f9;
   border-radius: 12px;
-  padding: 10px 16px;
+  padding: 10px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   cursor: pointer;
   transition: background 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .student-item.selected {
@@ -212,7 +237,7 @@ body {
     color: #cc0000;
 }
 
-.student-list,
+
 .task-details {
   flex: 1;              /* ✅ 均分可用寬度、也會自動撐滿高度 */
   overflow-y: auto;     /* ✅ 滾動支援 */
@@ -220,4 +245,144 @@ body {
   border-radius: 1rem;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
   padding: 1.5rem;
+}
+
+/* ================== */
+
+/* 維持原有的 body, navbar 樣式 (略)... 請保留您原本的上方樣式 */
+
+/* ---------------------------------------- */
+/* ✅ 新增的儀表板樣式 */
+/* ---------------------------------------- */
+
+.analysis-panel {
+  flex: 1;
+  background-color: #f4f6f9; /* 淡淡的灰底 */
+  padding: 1.5rem;
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 15px 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.project-select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+}
+
+/* 圖表區 - 左右並排 */
+.charts-container {
+  display: flex;
+  gap: 20px;
+  height: 300px; /* 固定高度 */
+}
+
+.chart-card {
+  flex: 1;
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-wrapper {
+  flex: 1;
+  position: relative;
+  min-height: 0; /* 重要：讓 Chart.js 在 flex 容器中正確縮放 */
+}
+
+/* 下方資訊區 - 左右並排 (可根據需要改成上下) */
+.info-container {
+  display: flex;
+  gap: 20px;
+  flex: 1; /* 佔滿剩餘高度 */
+}
+
+/* AI 總結卡片 */
+.ai-summary-card {
+  flex: 1;
+  background: white;
+  border-left: 5px solid #6d00ff; /* 紫色強調線 */
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.ai-content p {
+  margin-bottom: 10px;
+  line-height: 1.6;
+  color: #444;
+}
+
+/* 對話紀錄卡片 */
+.chat-log-card {
+  flex: 1;
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.log-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 5px;
+  margin-top: 10px;
+  max-height: 250px;
+}
+
+/* Log 項目樣式 */
+.log-item {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.log-time {
+  color: #888;
+  font-size: 12px;
+  margin-right: 8px;
+}
+
+.ai-log {
+  background-color: #f0f7ff;
+  border-radius: 8px;
+  border-bottom: none;
+  margin-bottom: 8px;
+}
+
+.ai-reply {
+  margin-top: 5px;
+  padding-left: 24px;
+  color: #0056b3;
+  font-size: 13px;
+}
+
+.delete-log {
+  color: #d9534f;
+}
+
+h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: #333;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 8px;
 }

@@ -3,87 +3,246 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>教師任務檢視頁</title>
+  <title>教師學習歷程分析後台</title>
   <link rel="stylesheet" href="css/teacher.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <!-- ✅ 導覽列 -->
   <div class="navbar">
     <div class="navbar-left">
-      <img src="images/login.png" alt="Scratch Lab Logo" class="logo-img" />
-      <span class="title">學生任務狀況查看</span>
+      <img src="images/login.png" alt="Logo" class="logo-img" />
+      <span class="title">學生學習歷程分析</span>
     </div>
     <div class="nav-tabs">
-      <span class="tab active">學生任務完成狀況</span>
+      <span class="tab active">任務分析儀表板</span>
     </div>
     <div class="navbar-right">
       <span class="teacher-name" id="teacherName">載入中...</span>
     </div>
   </div>
 
-  <!-- ✅ 加上 main-content 包住下方內容並避開導覽列 -->
   <div class="main-content">
     <div class="teacher-container">
-      <div class="student-list" id="studentList">
-        <div class="student-item">
-          <img src="images/login.png" class="student-avatar" alt="avatar" />
-          <div class="student-info">
-            <div class="student-name">student1</div>
-            <div class="student-meta">3A 班｜完成 1 / 3</div>
-            <div class="progress-bar">
-              <div class="progress" style="width: 33%;"></div>
-            </div>
-          </div>
-        </div>
-        <div class="student-item">
-          <img src="images/login.png" class="student-avatar" alt="avatar" />
-          <div class="student-info">
-            <div class="student-name">student2</div>
-            <div class="student-meta">3A 班｜完成 1 / 3</div>
-            <div class="progress-bar">
-              <div class="progress" style="width: 33%;"></div>
-            </div>
-          </div>
-        </div>
-        <div class="student-item">
-          <img src="images/login.png" class="student-avatar" alt="avatar" />
-          <div class="student-info">
-            <div class="student-name">student3</div>
-            <div class="student-meta">3A 班｜完成 1 / 3</div>
-            <div class="progress-bar">
-              <div class="progress" style="width: 33%;"></div>
-            </div>
-          </div>
-        </div>
+      <div class="student-list-container"> 
+        <div class="list-filter">
+          <select id="classFilter" class="class-select">
+            <option value="all">全部班級</option>
+            <option value="3A">3A 班</option>
+            <option value="3B">3B 班</option>
+            <option value="3C">3C 班</option>
+          </select>
       </div>
-      <div class="task-details" id="taskDetails">
-        <h2>請選擇學生以查看任務狀況</h2>
+
+  <div class="student-list" id="studentList">
+    </div>
+
+</div>
+
+      <div class="analysis-panel" id="analysisPanel">
+        <div class="panel-header">
+          <h2 id="currentStudentName">請選擇學生</h2>
+          <select id="projectSelect" class="project-select">
+            <option value="mission1">任務一：角色移動</option>
+            <option value="mission2">任務二：迷宮遊戲</option>
+          </select>
+        </div>
+
+        <div class="charts-container">
+          <div class="chart-card">
+            <h3>📈 程式碼演化歷程</h3>
+            <div class="chart-wrapper">
+              <canvas id="evolutionChart"></canvas>
+            </div>
+          </div>
+          
+          <div class="chart-card">
+            <h3>wwl 積木能力雷達</h3>
+            <div class="chart-wrapper">
+              <canvas id="radarChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-container">
+          <div class="ai-summary-card">
+            <h3>🤖 AI 學習診斷</h3>
+            <div class="ai-content" id="aiSummaryContent">
+              <p class="placeholder-text">點擊學生以查看 AI 分析結果...</p>
+            </div>
+          </div>
+
+          <div class="chat-log-card">
+            <h3>💬 關鍵思考與對話紀錄</h3>
+            <div class="log-list" id="logList">
+              </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
+    // 初始化使用者名稱
     const urlParams = new URLSearchParams(window.location.search);
-    const name = urlParams.get("name") || "老師";
-    document.getElementById("teacherName").textContent = name + "老師您好 !";
-    // ✅ 點選學生切換任務內容
-    document.querySelectorAll(".student-item").forEach(item => {
-      item.addEventListener("click", () => {
-        document.getElementById("taskDetails").innerHTML = `
-          <h2>任務狀況 - ${item.innerText}</h2>
-          <div class="task-card">
-            <h3>任務一：角色移動</h3>
-            <p class="task-status">已完成</p>
-            <p>完成時間：2025-06-11 15:00</p>
-          </div>
-          <div class="task-card">
-            <h3>任務二：控制重複</h3>
-            <p class="task-status pending">尚未完成</p>
+    document.getElementById("teacherName").textContent = (urlParams.get("name") || "老師") + " 老師";
+
+    // 全域圖表變數 (切換學生時需要銷毀重建)
+    let evolutionChartInstance = null;
+    let radarChartInstance = null;
+
+    // ✅ 模擬載入學生資料 (這是雛形，之後會接 Firebase)
+    function loadStudentData(studentName) {
+      document.getElementById("currentStudentName").textContent = `正在分析：${studentName}`;
+      
+      // 1. 繪製折線圖 (模擬資料)
+      renderEvolutionChart([5, 8, 12, 15, 10, 2, 18, 25, 30]); 
+      
+      // 2. 繪製雷達圖 (模擬資料)
+      renderRadarChart([80, 40, 60, 20, 90]);
+
+      // 3. 填入 AI 總結 (模擬)
+      document.getElementById("aiSummaryContent").innerHTML = `
+        <p><strong>表現亮點：</strong>${studentName} 在「動作」與「事件」積木的使用上非常熟練。</p>
+        <p><strong>潛在瓶頸：</strong>在中段（約第 15 分鐘）曾大幅刪除程式碼，顯示可能在「迴圈控制」邏輯上遇到挫折。</p>
+        <p><strong>建議：</strong>建議老師可以引導他觀察「重複無限次」與「條件判斷」的差異。</p>
+      `;
+
+      // 4. 填入對話紀錄 (模擬)
+      const logs = [
+        { time: "10:05", type: "run", text: "點擊綠旗執行專案" },
+        { time: "10:08", type: "ai", text: "學生問：貓咪為什麼不會停下來？", ai: "AI 回答：試試看檢查你的「重複無限次」積木裡面有沒有放「停止」的指令喔！" },
+        { time: "10:15", type: "delete", text: "刪除了 8 個積木 (大幅修改)" },
+        { time: "10:20", type: "run", text: "執行專案 (成功)" }
+      ];
+      renderLogs(logs);
+    }
+
+    // 繪製折線圖函式
+    function renderEvolutionChart(dataPoints) {
+      const ctx = document.getElementById('evolutionChart').getContext('2d');
+      if (evolutionChartInstance) evolutionChartInstance.destroy();
+
+      evolutionChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['0m', '5m', '10m', '15m', '20m', '25m', '30m', '35m', '40m'],
+          datasets: [{
+            label: '積木總數',
+            data: dataPoints,
+            borderColor: '#6d00ff',
+            backgroundColor: 'rgba(109, 0, 255, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    // 繪製雷達圖函式
+    function renderRadarChart(dataPoints) {
+      const ctx = document.getElementById('radarChart').getContext('2d');
+      if (radarChartInstance) radarChartInstance.destroy();
+
+      radarChartInstance = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: ['動作', '外觀', '事件', '控制', '運算'],
+          datasets: [{
+            label: '積木使用分佈',
+            data: dataPoints,
+            backgroundColor: 'rgba(255, 159, 64, 0.2)',
+            borderColor: 'rgba(255, 159, 64, 1)',
+            pointBackgroundColor: 'rgba(255, 159, 64, 1)',
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    // 渲染 Log 列表
+    function renderLogs(logs) {
+      const list = document.getElementById("logList");
+      list.innerHTML = "";
+      logs.forEach(log => {
+        let icon = "🔹";
+        let styleClass = "log-item";
+        if (log.type === "ai") { icon = "🤖"; styleClass += " ai-log"; }
+        if (log.type === "delete") { icon = "⚠️"; styleClass += " delete-log"; }
+        
+        let content = `<span class="log-time">${log.time}</span> <span class="log-text">${icon} ${log.text}</span>`;
+        if(log.ai) content += `<div class="ai-reply">${log.ai}</div>`;
+        
+        const div = document.createElement("div");
+        div.className = styleClass;
+        div.innerHTML = content;
+        list.appendChild(div);
+      });
+    }
+  </script>
+  <script>
+    // 1. 模擬學生資料 (之後這裡可以從 Firebase 讀取)
+    const allStudents = [
+      { id: 's1', name: 'student1', class: '3A', progress: 33, avatar: 'images/login.png' },
+      { id: 's2', name: 'student2', class: '3A', progress: 66, avatar: 'images/login.png' },
+      { id: 's3', name: 'student3', class: '3B', progress: 10, avatar: 'images/login.png' },
+      { id: 's4', name: 'student4', class: '3B', progress: 90, avatar: 'images/login.png' },
+      { id: 's5', name: 'student5', class: '3C', progress: 0,  avatar: 'images/login.png' },
+    ];
+
+    // 初始化
+    
+    const teacherName = urlParams.get("name") || "老師";
+    document.getElementById("teacherName").textContent = teacherName + " 老師您好 !";
+
+    const studentListEl = document.getElementById('studentList');
+    const classFilterEl = document.getElementById('classFilter');
+
+    // 2. 渲染學生列表函式
+    function renderStudentList(filterClass) {
+      studentListEl.innerHTML = ''; // 清空列表
+
+      // 過濾資料
+      const filteredStudents = allStudents.filter(student => {
+        if (filterClass === 'all') return true; // 顯示全部
+        return student.class === filterClass;   // 只顯示該班級
+      });
+
+      // 如果沒有學生
+      if (filteredStudents.length === 0) {
+        studentListEl.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">此班級無學生資料</p>';
+        return;
+      }
+
+      // 產生 HTML
+      filteredStudents.forEach(student => {
+        const div = document.createElement('div');
+        div.className = 'student-item';
+        // 綁定點擊事件 (呼叫原本定義好的載入圖表函式)
+        div.onclick = () => loadStudentData(student.name);
+
+        div.innerHTML = `
+          <img src="${student.avatar}" class="student-avatar" alt="avatar" />
+          <div class="student-info">
+            <div class="student-name">${student.name}</div>
+            <div class="student-meta">${student.class} 班｜進度 ${student.progress}%</div>
+            <div class="progress-bar">
+              <div class="progress" style="width: ${student.progress}%;"></div>
+            </div>
           </div>
         `;
+        studentListEl.appendChild(div);
       });
+    }
+
+    // 3. 綁定篩選事件
+    classFilterEl.addEventListener('change', (e) => {
+      renderStudentList(e.target.value);
     });
+
+    // 4. 一開始載入全部
+    renderStudentList('all');
+
   </script>
 </body>
-
 </html>
