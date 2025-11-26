@@ -20,15 +20,6 @@ let flag = false;
 // 2. 把 flag 暴露出去（方便除錯）
 window.getFlag = () => flag;
 
-// 3. 提供給 React 呼叫的 hook：sb3 載入成功之後叫這個
-// window.onSb3Loaded = function () {
-//     flag = true;
-//     console.log('[script3] sb3 載入成功，flag 已設為 true');
-//     // 載入完成 → 關掉 loading 遮罩
-//     if (window.hideLoading) {
-//         window.hideLoading();
-//     }
-// };
 // ===============================================
 
 // 每五分鐘儲存專案
@@ -2769,6 +2760,11 @@ function buildCsvContentForEdit(storedText, logs) {
  * 再把目前的 logs 內容合併後上傳覆蓋。
  */
 function getDbFile() {
+    // 如果目前沒有新的 log，直接結束，不要浪費流量下載/上傳
+    if (logs.length === 0) {
+        console.log("沒有新的 Log，跳過儲存");
+        return; 
+    }
     const projName = urlParams.get("p");
     const isEditMode = urlParams.get("edit") === "true";
 
@@ -2785,25 +2781,23 @@ function getDbFile() {
             // ========= 檔案存在：下載舊內容 =========
             const response = await fetch(foundURL);
             const storedText = await response.text();
-
+            // 要寫入的log儲存變數
             let csvText;
-            if (isEditMode) {
-                // 編輯舊專案：在舊內容後面多加一段這次的 log
-                csvText = buildCsvContentForEdit(storedText, logs);
-            } else {
-                // 不是編輯模式，你也可以選擇用舊內容＋新 logs
-                // 或者只保留這次 logs，看你研究設計
-                csvText = buildCsvContentForNew(logs);
-            }
+            csvText = storedText + logs.join(" ");
+            
+            await uploadCsvToFirebase(logsFileRef, csvText);
+            console.log("儲存成功，清空暫存 Logs");
+            logs = [];
 
-            return uploadCsvToFirebase(logsFileRef, csvText);
         })
         .catch((error) => {
             // ========= 檔案不存在：第一次儲存 =========
             console.log("log 檔不存在，建立新的檔案", error.code);
 
             const csvText = buildCsvContentForNew(logs);
-            return uploadCsvToFirebase(logsFileRef, csvText);
+            uploadCsvToFirebase(logsFileRef, csvText).then(() => {
+                 logs = []; // ✅ 這裡也要清空
+            });
         });
 }
 // ============================================

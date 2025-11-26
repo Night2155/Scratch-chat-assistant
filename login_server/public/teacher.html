@@ -10,7 +10,9 @@
 <body>
   <div class="navbar">
     <div class="navbar-left">
-      <img src="images/login.png" alt="Logo" class="logo-img" />
+      <a href="/logout">
+        <img src="images/login.png" alt="Logo" class="logo-img" />
+      </a>
       <span class="title">學生學習歷程分析</span>
     </div>
     <div class="nav-tabs">
@@ -49,14 +51,14 @@
 
         <div class="charts-container">
           <div class="chart-card">
-            <h3>📈 程式碼演化歷程</h3>
+            <h3>程式積木使用過程</h3>
             <div class="chart-wrapper">
               <canvas id="evolutionChart"></canvas>
             </div>
           </div>
           
           <div class="chart-card">
-            <h3>wwl 積木能力雷達</h3>
+            <h3>積木能力雷達</h3>
             <div class="chart-wrapper">
               <canvas id="radarChart"></canvas>
             </div>
@@ -65,14 +67,14 @@
 
         <div class="info-container">
           <div class="ai-summary-card">
-            <h3>🤖 AI 學習診斷</h3>
+            <h3>AI 學習診斷</h3>
             <div class="ai-content" id="aiSummaryContent">
               <p class="placeholder-text">點擊學生以查看 AI 分析結果...</p>
             </div>
           </div>
 
           <div class="chat-log-card">
-            <h3>💬 關鍵思考與對話紀錄</h3>
+            <h3>關鍵動作與機器人對話紀錄</h3>
             <div class="log-list" id="logList">
               </div>
           </div>
