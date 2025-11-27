@@ -1,89 +1,213 @@
-//儲存閒置時間的log
-/*
-var oTimerId;
-function Timeout() {
-    $('#downloadSB3').click();
-}
-function ReCalculate() {
-     clearTimeout(oTimerId);
-     oTimerId = setTimeout('Timeout()', 1 * 60 * 1000);
-}
-document.onmousedown = ReCalculate;
-document.onmousemove = ReCalculate;
-ReCalculate();
-*/
-// ===================sb3檔載入的遮罩===========================
 
+// ===================sb3檔載入的遮罩==============
 // 1. 原本的旗標
 let flag = false;
-
 // 2. 把 flag 暴露出去（方便除錯）
 window.getFlag = () => flag;
-
 // ===============================================
+// ===================log檔儲存機制 ===============
+/**
+ * - 暫存資料：管理 logs 陣列。
+ * - 計時器管理：統一管理「閒置計時」與「定期儲存」。
+ * - 格式化：統一 CSV 格式，避免欄位錯亂。
+ * - 上傳：處理 Firebase 上傳與清空暫存。
+ */
+const LogManager = {
+    // --- 設定區 ---
+    IDLE_LIMIT: 2 * 60 * 1000,    // 閒置判定時間 (2分鐘)
+    AUTO_SAVE_INTERVAL: 5 * 60 * 1000, // 自動儲存間隔 (5分鐘)
+    
+    // --- 狀態區 ---
+    buffer: [],           // 暫存的 log 資料
+    idleTimer: null,      // 閒置計時器
+    autoSaveTimer: null,  // 定期存檔計時器
+    isIdle: false,        // 目前是否處於閒置狀態
 
+    // --- 初始化 ---
+    init: function() {
+        console.log("LogManager 初始化...");
+        this.startAutoSave();
+        this.resetIdleTimer();
+        this.bindUserActivity();
+    },
+
+    // --- 核心功能：新增紀錄 ---
+    // type: 動作類型 (如 "新增積木", "執行", "閒置")
+    // details: 詳細內容 (積木名稱、Snaphost、對話內容)
+    add: function(action, details) {
+        const timestamp = new Date();
+        const dateStr = `${timestamp.getFullYear()}/${timestamp.getMonth() + 1}/${timestamp.getDate()}`;
+        const timeStr = `${timestamp.getHours()}:${timestamp.getMinutes()}:${timestamp.getSeconds()}`;
+        
+        // 統一取得積木數量 (假設您已有 getBlockCount 函式)
+        const blockCount = (typeof getBlockCount === 'function') ? getBlockCount() : 0;
+
+        // 組合標準 CSV 格式 (Code, Date, Time, Action, Details, BlockCount)
+        // 這裡可以加入一個隨機碼或流水號作為 Code，或留空
+        const logEntry = `\n,${dateStr},${timeStr},${action},${details},${blockCount}`;
+        
+        this.buffer.push(logEntry);
+        console.log(`[Log] ${action}: ${details}`);
+
+        // 如果使用者有動作，且之前是閒置狀態，記錄「結束閒置」
+        if (this.isIdle && action !== '閒置狀態') {
+            this.isIdle = false;
+            this.add('閒置結束', '使用者恢復操作');
+        }
+    },
+
+    // --- 核心功能：執行儲存 ---
+    save: function(reason) {
+        if (this.buffer.length === 0) {
+            console.log(`[Save] 觸發原因: ${reason} (無新資料，跳過)`);
+            return;
+        }
+
+        console.log(`[Save] 正在上傳... 觸發原因: ${reason}`);
+        
+        // 這裡呼叫您原本的 Firebase 上傳邏輯
+        // 注意：要將 this.buffer 傳進去，並在成功後清空
+        this.uploadToFirebase(this.buffer).then(() => {
+            console.log("[Save] 上傳成功，清空暫存");
+            this.buffer = []; // 清空暫存
+        }).catch(err => {
+            console.error("[Save] 上傳失敗，保留暫存", err);
+        });
+    },
+
+    // --- 內部邏輯：Firebase 上傳 (整合您原本的 getDbFile 邏輯) ---
+    uploadToFirebase: function(logsToSave) {
+        const storage = firebase.storage();
+        // 根據您的路徑規則
+        const filePath = `${localStorage.classno}/${localStorage.username}/Projects/${urlParams.get("p")}/${localStorage.username}_${urlParams.get("p")}.csv`;
+        const fileRef = storage.ref(filePath);
+
+        return fileRef.getDownloadURL()
+            .then(async (url) => {
+                // 1. 舊檔案存在：下載並串接
+                const response = await fetch(url);
+                const oldContent = await response.text();
+                // 這裡做個小檢查：如果讀出來的舊內容開頭已經有 BOM，就不要重複加，避免格式怪異
+                // 但通常 response.text() 會自動處理掉 BOM，所以我們儲存時統一加回去比較保險
+
+                const newContent = oldContent + logsToSave.join(" ");
+
+                // 【關鍵修改】在內容最前面加上 "\uFEFF" (BOM)
+                const blob = new Blob(["\uFEFF" + newContent], { type: "text/csv;charset=utf-8" });
+                return fileRef.put(blob);
+            })
+            .catch((error) => {
+                // 2.檔案不存在，建立新檔
+                const header = "\uFEFFCode,Date,Time,Action,Details,BlockCount";
+                const newContent = header + logsToSave.join(" ");
+                const blob = new Blob(["\uFEFF" + newContent], { type: "text/csv;charset=utf-8" });
+                return fileRef.put(blob);
+            });
+    },
+
+    // --- 計時器邏輯：重置閒置計時 ---
+    resetIdleTimer: function() {
+        if (this.idleTimer) clearTimeout(this.idleTimer);
+        
+        this.idleTimer = setTimeout(() => {
+            this.isIdle = true;
+            this.add('閒置狀態', '使用者超過2分鐘無操作');
+            this.save('閒置儲存');
+        }, this.IDLE_LIMIT);
+    },
+
+    // --- 計時器邏輯：定期存檔 ---
+    startAutoSave: function() {
+        if (this.autoSaveTimer) clearInterval(this.autoSaveTimer);
+        
+        this.autoSaveTimer = setInterval(() => {
+            this.save('定期自動儲存(5分鐘)');
+        }, this.AUTO_SAVE_INTERVAL);
+    },
+
+    // --- 監聽器：綁定使用者活動 ---
+    bindUserActivity: function() {
+        const activityEvents = ['mousedown', 'keydown', 'touchstart'];
+        const _this = this;
+        
+        activityEvents.forEach(event => {
+            document.addEventListener(event, () => {
+                _this.resetIdleTimer();
+            });
+        });
+        
+        // 分頁切換監聽
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                _this.add('分頁切換', '使用者切換到其他視窗');
+                _this.save('分頁切換儲存');
+            }
+        });
+    }
+};
+// ===============================================
 // 每五分鐘儲存專案
-var oTimerId;
-function ReCalculate() {
-    clearTimeout(oTimerId); //清除存在的計時器
-    oTimerId = setTimeout("Timeout()", 5 * 60 * 1000); //設定計時5分鐘
-}
-function Timeout() {
-    ReCalculate(); //每五分鐘重設一次計時器
-    getDbFile(); //將log傳到資料庫儲存起來
-    console.log("每5分鐘儲存");
-    console.log(getDate() + "," + getTime());
-    // logs.push(`\n${getDate()},${getTime()},自動儲存,每五分鐘儲存`);
-}
+// var oTimerId;
+// function ReCalculate() {
+//     clearTimeout(oTimerId); //清除存在的計時器
+//     oTimerId = setTimeout("Timeout()", 5 * 60 * 1000); //設定計時5分鐘
+// }
+// function Timeout() {
+//     ReCalculate(); //每五分鐘重設一次計時器
+//     getDbFile(); //將log傳到資料庫儲存起來
+//     console.log("每5分鐘儲存");
+//     console.log(getDate() + "," + getTime());
+//     // logs.push(`\n${getDate()},${getTime()},自動儲存,每五分鐘儲存`);
+// }
 
 // 閒置2分鐘儲存檔案
-var oTimerId2;
-function Timeout2() {
-    ReCalculate2(); //每2分鐘重設一次計時器
-    getDbFile(); //將log傳到資料庫儲存起來
-    console.log("閒置120秒儲存");
-    console.log(getDate() + "," + getTime());
-    logs.push(`\nIS,${getDate()},${getTime()},閒置儲存,閒置120秒儲存`);
-}
-function ReCalculate2() {
-    clearTimeout(oTimerId2); //清除存在的計時器
-    oTimerId2 = setTimeout("Timeout2()", 2 * 60 * 1000); //設定計時2分鐘
-}
+// var oTimerId2;
+// function Timeout2() {
+//     ReCalculate2(); //每2分鐘重設一次計時器
+//     getDbFile(); //將log傳到資料庫儲存起來
+//     console.log("閒置120秒儲存");
+//     console.log(getDate() + "," + getTime());
+//     logs.push(`\nIS,${getDate()},${getTime()},閒置儲存,閒置120秒儲存`);
+// }
+// function ReCalculate2() {
+//     clearTimeout(oTimerId2); //清除存在的計時器
+//     oTimerId2 = setTimeout("Timeout2()", 2 * 60 * 1000); //設定計時2分鐘
+// }
 
 //滑鼠向下案就會觸發重設兩分鐘及5分鐘的事件
 //當玩家點擊左列9大類項目時重設
-document
-    .getElementsByClassName("scratchCategoryMenu")[0]
-    .addEventListener("mousedown", () => {
-        console.log("開始動作");
-        clearTimeout(oTimerId2);
-        clearTimeout(oTimerId);
-    });
+// document
+//     .getElementsByClassName("scratchCategoryMenu")[0]
+//     .addEventListener("mousedown", () => {
+//         console.log("開始動作");
+//         clearTimeout(oTimerId2);
+//         clearTimeout(oTimerId);
+//     });
 
 //當玩家拖拉方塊時重設
-document
-    .getElementsByClassName("blocklyMainBackground")[0]
-    .addEventListener("mouseup", () => {
-        console.log("開始動作");
-        clearTimeout(oTimerId2);
-        clearTimeout(oTimerId);
-    });
+// document
+//     .getElementsByClassName("blocklyMainBackground")[0]
+//     .addEventListener("mouseup", () => {
+//         console.log("開始動作");
+//         clearTimeout(oTimerId2);
+//         clearTimeout(oTimerId);
+//     });
 
-ReCalculate();
-ReCalculate2();
+// ReCalculate();
+// ReCalculate2();
 
 // 切換分頁的話儲存專案，並記錄log檔
-if (document.hidden !== undefined) {
-    //當頁面有改變的時候會觸發這個function
-    document.addEventListener("visibilitychange", () => {
-        if (document.hidden == true) {
-            getDbFile(); //將log傳到資料庫儲存起來
-            console.log("切換分頁儲存");
-            console.log(getDate() + "," + getTime());
-            logs.push(`\nPS,${getDate()},${getTime()},分頁切換,切換分頁儲存`); //將切換分頁的日期時間放入logs陣列裡
-        }
-    });
-}
+// if (document.hidden !== undefined) {
+//     //當頁面有改變的時候會觸發這個function
+//     document.addEventListener("visibilitychange", () => {
+//         if (document.hidden == true) {
+//             getDbFile(); //將log傳到資料庫儲存起來
+//             console.log("切換分頁儲存");
+//             console.log(getDate() + "," + getTime());
+//             logs.push(`\nPS,${getDate()},${getTime()},分頁切換,切換分頁儲存`); //將切換分頁的日期時間放入logs陣列裡
+//         }
+//     });
+// }
 
 const siteUrl = "https://scratch-ct.web.app/"; //(學生端介面)
 // const guiUrl = 'http://140.116.226.210:8060/';  //scratch操作介面的網址
@@ -121,7 +245,7 @@ const firebaseConfig = {
 // 讀取學生資料庫資料
 firebase.initializeApp(firebaseConfig); //做firebase初始化的設定
 localStorage.clear(); //將本地端的設定清除
-let logs = []; //宣告logs陣列來儲存資料
+// let logs = []; //宣告logs陣列來儲存資料
 var clickCatTimes = 0; //宣告點擊程式事件次數
 var handsUpTimes = 0; //宣告舉手次數
 let urlParams = new URLSearchParams(window.location.search); //宣告一個物件來取得網頁url的參數(classno=null&no=null&name=null&p=test&i=null)
@@ -236,6 +360,7 @@ $(document).ready(function () {
         visibility: unvisible;
     }
     `;
+    LogManager.init(); // 啟動管理器
     document.head.appendChild(style);
     $(document).on("keydown", disableF5); //禁用F5更新功能
     $(document).on("keydown", enableSpace); //當按下空白鍵時會被觸發
@@ -768,6 +893,8 @@ async function sendMessage() {
         appendMessage(userMessage, "user");
         document.getElementById("message-input").value = "";
         const response = await getBotResponse(userMessage);
+        LogManager.add("AI_QA", `問:${userMessage} | 答:${response}`);
+        LogManager.save("對話後儲存");
         setTimeout(() => appendMessage(`${response}`, "bot"), 1000);
     }
 }
@@ -1145,21 +1272,24 @@ function enableSpace(e) {
     //e.which || e.keyCode:哪個鍵被按下，會回傳鍵的按鍵碼
     if ((e.which || e.keyCode) == 32) {
         console.log("空白鍵被按下");
+        /**
+         * 待更新.....
+         */
         // logs.push(`\n${getDate()},${getTime()},執行,點擊透過空白鍵執行`);
-
-        saveLastWorkSpace();
-        Object.keys(localStorage).forEach(function (key) {
-            //檢查所有localstorage的鍵
-            if (/^sprite:/.test(key)) {
-                //檢查每個鍵是否以"sprite:"字串開頭
-                console.log("\n" + key + "\n " + localStorage[key]);
-                logs.push(
-                    `\nEP,${getDate()},${getTime()},執行,點擊透過空白鍵執行 ${key}工作區：${localStorage[key]
-                    }`
-                );
-                getDbFile(); //將log傳到資料庫儲存起來
-            }
-        });
+        // saveLastWorkSpace();
+        // Object.keys(localStorage).forEach(function (key) {
+        //     //檢查所有localstorage的鍵
+        //     if (/^sprite:/.test(key)) {
+        //         //檢查每個鍵是否以"sprite:"字串開頭
+        //         console.log("\n" + key + "\n " + localStorage[key]);
+        //         logs.push(
+        //             `\nEP,${getDate()},${getTime()},執行,點擊透過空白鍵執行 ${key}工作區：${localStorage[key]
+        //             }`
+        //         );
+        //         getDbFile(); //將log傳到資料庫儲存起來
+                
+        //     }
+        // });
     }
 }
 //編寫停用F5更新的事件
@@ -1205,8 +1335,9 @@ function checkExample() {
         // logs.push(`\n${getDate()},${getTime()},讀取專案,${example}`);
         // console.log(`${getDate()},${getTime()},改編專案,${ProjName}`);
         // logs.push(`\n${getDate()},${getTime()},改編專案,${ProjName}`);
-        console.log(`${getDate()},${getTime()},建立專案,${ProjName}`);
-        logs.push(`\nCP,${getDate()},${getTime()},建立專案,${ProjName}`);
+        // console.log(`${getDate()},${getTime()},建立專案,${ProjName}`);
+        // logs.push(`\nCP,${getDate()},${getTime()},建立專案,${ProjName}`);
+        LogManager.add("建立專案", 'code : CP');
     }
     // document.getElementsByClassName('menu-bar_title-field-growable_3qr4G')[0].value = ProjName;
     // document.getElementsByClassName('menu-bar_title-field-growable_3qr4G')[0].setAttribute('value', ProjName);
@@ -1231,7 +1362,7 @@ function checkProjName() {
         (ProjName != null || ProjName != "" || ProjName != "null")
     ) {
         console.log(`${getDate()},${getTime()},建立專案,${ProjName}`);
-        logs.push(`\nCP,${getDate()},${getTime()},建立專案,${ProjName}`);
+        // logs.push(`\nCP,${getDate()},${getTime()},建立專案,${ProjName}`);
     }
     // document.getElementsByClassName('menu-bar_title-field-growable_3qr4G')[0].setAttribute('value', ProjName);
 }
@@ -1244,7 +1375,7 @@ function checkLoadProjName(ProjName) {
     )[0].value;
     if (loadProjName != nowProjName) {
         console.log(`${getDate()},${getTime()},讀取專案,${loadProjName}`);
-        logs.push(`\nRP,${getDate()},${getTime()},讀取專案,${loadProjName}`);
+        // logs.push(`\nRP,${getDate()},${getTime()},讀取專案,${loadProjName}`);
     }
 }
 
@@ -1253,36 +1384,6 @@ function eventCore() {
     if (document.addEventListener) {
         document.addEventListener("click", function (event) {
             var targetElement = event.target || event.srcElement; //宣告當前事件的事件源
-            // if (targetElement.className == "injectionDiv") {
-            //     if (document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length != 0) {
-            //         logs.push(`\n${getDate()},${getTime()},工作區變更,`);
-            //         for (i = 0; i < document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length; i++) {
-            //             console.dir('>' + document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[i].textContent);
-            //             logs.push('>' + document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[i].textContent);
-            //             clickCatTimes = 0; //如果有拖拉積木，視為找到想要的積木
-            //         }
-            //         let newBlock = document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length - 1].textContent;
-            //         let newBlockCat = document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length - 1].dataset.category;
-            //         if (newBlockCat === undefined) {
-            //             if (document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length - 1].childNodes[0].attributes.fill.value === '#FF6680') {
-            //                 newBlockCat = 'function';
-            //             }
-            //         }
-            //         else if (newBlockCat === 'data') {
-            //             newBlockCat = 'variable';
-            //         }
-            //         //console.log(newBlockCat);
-            //         if (newBlockCat === 'motion') { logs.push(`\n${getDate()},${getTime()},新增積木,新增動作積木:${newBlock}`); }
-            //         if (newBlockCat === 'looks') { logs.push(`\n${getDate()},${getTime()},新增積木,新增外觀積木:${newBlock}`); }
-            //         if (newBlockCat === 'sounds') { logs.push(`\n${getDate()},${getTime()},新增積木,新增音效積木:${newBlock}`); }
-            //         if (newBlockCat === 'events') { logs.push(`\n${getDate()},${getTime()},新增積木,新增事件積木:${newBlock}`); }
-            //         if (newBlockCat === 'control') { logs.push(`\n${getDate()},${getTime()},新增積木,新增控制積木:${newBlock}`); }
-            //         if (newBlockCat === 'sensing') { logs.push(`\n${getDate()},${getTime()},新增積木,新增偵測積木:${newBlock}`); }
-            //         if (newBlockCat === 'operators') { logs.push(`\n${getDate()},${getTime()},新增積木,新增運算積木:${newBlock}`); }
-            //         if (newBlockCat === 'variable') { logs.push(`\n${getDate()},${getTime()},新增積木,新增變數積木:${newBlock}`); }
-            //         if (newBlockCat === 'function') { logs.push(`\n${getDate()},${getTime()},新增積木,新增函數積木:${newBlock}`); }
-            //     }
-            // }
             clickUI(targetElement); // record click button or another UI on the page
             clickSprite(targetElement); // record click Sprite events
             clickCat(targetElement); // record click category events
@@ -1291,36 +1392,6 @@ function eventCore() {
     } else if (document.attachEvent) {
         document.attachEvent("onclick", function () {
             var targetElement = event.target || event.srcElement;
-            // if (targetElement.className == "injectionDiv") {
-            //     if (document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length != 0) {
-            //         logs.push(`\n${getDate()},${getTime()},工作區變更,`);
-            //         for (i = 0; i < document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length; i++) {
-            //             console.dir('>' + document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[i].textContent);
-            //             logs.push('>' + document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[i].textContent);
-            //             clickCatTimes = 0;
-            //         }
-            //         let newBlock = document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length - 1].textContent;
-            //         let newBlockCat = document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length - 1].dataset.category;
-            //         if (newBlockCat === undefined) {
-            //             if (document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes[document.getElementsByClassName('blocklyBlockCanvas')[0].childNodes.length - 1].childNodes[0].attributes.fill.value === '#FF6680') {
-            //                 newBlockCat = 'function';
-            //             }
-            //         }
-            //         else if (newBlockCat === 'data') {
-            //             newBlockCat = 'variable';
-            //         }
-            //         console.log(newBlockCat);
-            //         if (newBlockCat === 'motion') { logs.push(`\n${getDate()},${getTime()},新增積木,新增動作積木:${newBlock}`); }
-            //         if (newBlockCat === 'looks') { logs.push(`\n${getDate()},${getTime()},新增積木,新增外觀積木:${newBlock}`); }
-            //         if (newBlockCat === 'sounds') { logs.push(`\n${getDate()},${getTime()},新增積木,新增音效積木:${newBlock}`); }
-            //         if (newBlockCat === 'events') { logs.push(`\n${getDate()},${getTime()},新增積木,新增事件積木:${newBlock}`); }
-            //         if (newBlockCat === 'control') { logs.push(`\n${getDate()},${getTime()},新增積木,新增控制積木:${newBlock}`); }
-            //         if (newBlockCat === 'sensing') { logs.push(`\n${getDate()},${getTime()},新增積木,新增偵測積木:${newBlock}`); }
-            //         if (newBlockCat === 'operators') { logs.push(`\n${getDate()},${getTime()},新增積木,新增運算積木:${newBlock}`); }
-            //         if (newBlockCat === 'variable') { logs.push(`\n${getDate()},${getTime()},新增積木,新增變數積木:${newBlock}`); }
-            //         if (newBlockCat === 'function') { logs.push(`\n${getDate()},${getTime()},新增積木,新增函數積木:${newBlock}`); }
-            //     }
-            // }
             clickUI(targetElement); // record click button or another UI on the page
             clickSprite(targetElement); // record click Sprite events
             clickCat(); // record click category events
@@ -1673,7 +1744,7 @@ function clickUI(targetElement) {
         )[0].value;
         console.log(`${getDate()},${getTime()},儲存專案,${loadProjName}`);
         console.log(getDate() + "," + getTime());
-        logs.push(`\nSP,${getDate()},${getTime()},儲存專案,${loadProjName}`);
+        // logs.push(`\nSP,${getDate()},${getTime()},儲存專案,${loadProjName}`);
         document
             .getElementsByClassName(
                 "menu_menu-item_3EwYA menu_hoverable_3u9dt"
@@ -1682,45 +1753,31 @@ function clickUI(targetElement) {
         getDbFile();
     }
 
-    /*
-    if (targetElement.id == "handsUp") {
-        if (handsUpTimes > 4) {
-            alert('已舉手讓老師知道');
-        } else {
-            handsUpTimes++;
-            logs.push(`\n${getDate()},${getTime()},電子舉手,${handsUpTimes}`);
- 
-            const handsUpRef = firebase.database().ref(`${localStorage.identity}/${localStorage.classno}/${localStorage.no}/handsUp/`);
-            var handsUpItem = {
-                times: handsUpTimes,
-                state: true
-            }
-            handsUpRef.update(handsUpItem);
-        }
-    }
-    */
-
     if (targetElement.className == "green-flag_green-flag_1kiAo") {
         // when click green flag, puts logs and save blocls on the sprite's workspace to the localStorage
         // logs.push(`\n${getDate()},${getTime()},執行,點擊執行旗幟`);
 
-        saveLastWorkSpace();
-        Object.keys(localStorage).forEach(function (key) {
-            if (/^sprite:/.test(key)) {
-                console.log("\n" + key + "\n " + localStorage[key]);
-                console.log(getDate() + "," + getTime());
-                logs.push(
-                    `\nEP,${getDate()},${getTime()},執行,點擊綠旗 ${key}工作區：${localStorage[key]
-                    }`
-                );
-                getDbFile(); //將log傳到資料庫儲存起來
-            }
-        });
+        const snapshot = getWorkspaceContext(); // 取得快照
+        LogManager.add("執行專案", snapshot.replace(/\n/g, ' | '));
+        LogManager.save("執行時立即儲存"); // 重要時刻立即存
+        // saveLastWorkSpace();
+        // Object.keys(localStorage).forEach(function (key) {
+        //     if (/^sprite:/.test(key)) {
+        //         console.log("\n" + key + "\n " + localStorage[key]);
+        //         console.log(getDate() + "," + getTime());
+        //         logs.push(
+        //             `\nEP,${getDate()},${getTime()},執行,點擊綠旗 ${key}工作區：${localStorage[key]
+        //             }`
+        //         );
+        //         getDbFile(); //將log傳到資料庫儲存起來
+        //     }
+        // });
     }
 
     if (targetElement.className == "stop-all_stop-all_1Y8P9") {
         // record click stop icon
-        logs.push(`\nCP,${getDate()},${getTime()},暫停,點擊暫停`);
+        // logs.push(`\nCP,${getDate()},${getTime()},暫停,點擊暫停`);
+        LogManager.add("CP 暫停", "點擊暫停按鍵");
         console.log("stop");
         console.log(getDate() + "," + getTime());
     }
@@ -1738,7 +1795,8 @@ function clickSprite(targetElement) {
     if (targetElement.className == "delete-button_delete-icon_3b8wH") {
         console.log("(刪除角色)");
         console.log(getDate() + "," + getTime());
-        logs.push(`\nRR,${getDate()},${getTime()},刪除角色,刪除角色`);
+        // logs.push(`\nRR,${getDate()},${getTime()},刪除角色,刪除角色`);
+        LogManager.add("RR", "刪除角色");
     }
 
     // if click sprite img to chang sprite's workspace will run this code
@@ -1759,8 +1817,10 @@ function clickSprite(targetElement) {
             " WorkSpace 上的 Blocks 如下"
         );
         console.log(getDate() + "," + getTime());
-        logs.push(`\nCR,${getDate()},${getTime()},切換角色,切換角色`);
-        logs.push(`\nWC,${getDate()},${getTime()},畫布變更,`);
+        // logs.push(`\nCR,${getDate()},${getTime()},切換角色,切換角色`);
+        // logs.push(`\nWC,${getDate()},${getTime()},畫布變更,`);
+        LogManager.add("CR", "切換角色");
+        LogManager.add("WC", "畫布變更");
         if (
             document.getElementsByClassName("blocklyBlockCanvas")[0].childNodes
                 .length != 0
@@ -1777,11 +1837,14 @@ function clickSprite(targetElement) {
                     document.getElementsByClassName("blocklyBlockCanvas")[0]
                         .childNodes[i].textContent
                 );
-                logs.push(
-                    ">" +
-                    document.getElementsByClassName("blocklyBlockCanvas")[0]
-                        .childNodes[i].textContent
-                );
+                /**
+                 * 待更新 這邊不知道有甚麼功能
+                 */
+                // logs.push(
+                //     ">" +
+                //     document.getElementsByClassName("blocklyBlockCanvas")[0]
+                //         .childNodes[i].textContent
+                // );
             }
         } else {
             //(後)console.log('(空白)');
@@ -1798,6 +1861,7 @@ function clickSprite(targetElement) {
     ) {
         console.log("(新增角色)");
         logs.push(`\nCR,${getDate()},${getTime()},新增角色,新增角色`);
+        LogManager.add("CR 新增角色", "新增角色");
         console.log(getDate() + "," + getTime());
         //(後)saveLastWorkSpace();
     }
@@ -2249,6 +2313,9 @@ function matchcal(text) {
 }
 
 // 判斷學生目前所使用的積木序列是不是有使用到迴圈的規則
+/**
+ * 提示學生功能要再改寫
+ */
 function ismatchfunction(judge_blockly_funct, funct) {
     if (countSubarrayOccurrences(judge_blockly_funct, funct) > 1) {
         const note3 = console.log(judge_blockly_funct);
@@ -2257,7 +2324,7 @@ function ismatchfunction(judge_blockly_funct, funct) {
         );
         alert_times++;
         console.log(`紀錄提示次數：${alert_times}`);
-        logs.push(`\n,${getDate()},${getTime()},系統提示,第${alert_times}次提示`);
+        // logs.push(`\n,${getDate()},${getTime()},系統提示,第${alert_times}次提示`);
         // if (note3 == true) {
         //     document.getElementById('blinking-icon').style.display='block';
         // }else {
@@ -2470,17 +2537,18 @@ function handleBlockEvent(event) {
     const blockCount = workspace.getAllBlocks(false).length;   // BlockCount 欄位
 
     // 建立通用的 log line
-    function pushLog(action, details) {
-        const line =
-            `\n,${getDate()},${getTime()},${action},${details},${blockCount}`;
-        logs.push(line);
-    }
+    // function pushLog(action, details) {
+    //     const line =
+    //         `\n,${getDate()},${getTime()},${action},${details},${blockCount}`;
+    //     logs.push(line);
+    // }
 
     // === 偵測積木新增 ===
     if (event.type === 'create') {   // ✅ 改成字串
 
         console.log(`🟩 新增積木：${blockType}`);
-        pushLog("新增積木", blockType);
+        // pushLog("新增積木", blockType);
+        LogManager.add("新增積木", blockType);
         // logs.push(`${getDate()},${getTime()},新增積木,${blockType}`);
         updateBlockStats(workspace);
         if (isExperimentGroup()) checkExperimentCondition();
@@ -2500,7 +2568,8 @@ function handleBlockEvent(event) {
         console.log("🟥 刪除事件：", deletedStackTypes);
         // CSV 如果要寫陣列 → 用 | 連接
         const details = deletedStackTypes.join("|") || "unknown";
-        pushLog("刪除積木", details);
+        // pushLog("刪除積木", details);
+        LogManager.add("刪除積木", details);
         // logs.push(`${getDate()},${getTime()},刪除積木,${deletedStackTypes.join('|')}`);
         // 上傳到 Firebase 的紀錄（整疊）
         // uploadLogToFirebase(userId, {
@@ -2606,124 +2675,7 @@ function getBlockTypeFromEvent(event, workspace) {
 }
 
 // ===================================
-// function getDbFile() {
-//     // 複寫 logs file, 所以需要判斷 db 中是否有 file，如果沒有會去創建新的 file
-//     // const logsFileRef = firebase
-//     //     .storage()
-//     //     .ref(`${localStorage.identity}/${classno}/${userno}/Projects/${urlParams.get("p")}/${userno}_${urlParams.get("p")}.csv`);
-//     /**
-//      * 確認Firebase中有沒有CSV檔
-//      */
-//     const logsFileRef = firebase
-//         .storage()
-//         .ref(`${classno}/${username}/Projects/${urlParams.get("p")}/${username}_${urlParams.get("p")}.csv`);
-//     logsFileRef.getDownloadURL().then(onResolve, onReject);
-//     // 機器人log放這裡
-//     /**
-//      * 如果有檔案
-//      * - 下載舊 CSV → 存在變數 storedText
-//      * - 再把你本地 logs[] 裡的字串 join 起來附加在後面
-//      * - 然後呼叫 create() 來覆蓋整份新的 CSV
-//      */
-//     function onResolve(foundURL) {
-//         logsFileRef.getDownloadURL().then(function (foundURL) {
-//             var storedText;
-//             fetch(foundURL).then(function (response) {
-//                 response.text().then(function (text) {
-//                     storedText = text;
-//                     if (urlParams.get("edit") == "true") {
-//                         // console.log('\n ' + new Date().toLocaleString() + ' 編輯專案：' + urlParams.get('p'));
-//                         // logs.push(`\n${getDate()},${getTime()},專案,編輯專案：${urlParams.get('p')}`);
-//                         //使用 \uFEFF 字符開始的。這是一個特殊的 Unicode 字符，通常用於表示文件的開始或字節順序標記（BOM）。它後面連接了 storedText 變量的內容，該變量似乎是存儲在某個地方的文本數據。
-//                         create(
-//                             "\uFEFF" +
-//                             storedText +
-//                             "\n\n" +
-//                             getDate() +
-//                             "," +
-//                             getTime() +
-//                             ",修改專案," +
-//                             urlParams.get("p") +
-//                             logs.join(" "),
-//                             username +
-//                             "_" +
-//                             urlParams.get("p") +
-//                             "_" +
-//                             new Date().toLocaleString() +
-//                             ".csv",
-//                             "text/csv;charset=utf-8"
-//                         );
-//                     } else {
-//                         // console.log('\n ' + new Date().toLocaleString() + ' 接續專案：' + urlParams.get('p'));
-//                         // logs.push(`\n${getDate()},${getTime()},專案,接續專案：${urlParams.get('p')}`);
 
-//                         create(
-//                             "\uFEFFCode,Date,Time,Action,Details,BlockCount" +
-//                             logs.join(" "),
-//                             username +
-//                             "_" +
-//                             urlParams.get("p") +
-//                             "_" +
-//                             new Date().toLocaleString() +
-//                             ".csv",
-//                             "text/csv;charset=utf-8"
-//                         );
-
-//                         // create('\uFEFF' + storedText + '\n\n' + getDate() + ',' + getTime() + ',專案,接續專案：' + urlParams.get('p') + logs.join(' '),
-//                         //     username + '_' + urlParams.get('p') + '_' + new Date().toLocaleString() + '.csv',
-//                         //     'text/csv;charset=utf-8');
-//                     }
-//                 });
-//             });
-//         });
-//     }
-//     // 如果檔案不存在，創建新的檔案
-//     function onReject(error) {
-//         //fill not found
-//         console.log("notfoundURL");
-//         console.log(error.code);
-//         create(
-//             "\uFEFFCode,Date,Time,Action,Details,BlockCount" + logs.join(" "),
-//             username +
-//             "_" +
-//             urlParams.get("p") +
-//             "_" +
-//             new Date().toLocaleString() +
-//             ".csv",
-//             "text/csv;charset=utf-8"
-//         );
-//         // create('\uFEFFDate,Time,Action,Details\n' + getDate() + ',' + getTime() + ',專案,第一次新增專案：' + urlParams.get('p') + logs.join(' '),
-//         //     username + '_' + urlParams.get('p') + '_' + new Date().toLocaleString() + '.csv',
-//         //     'text/csv;charset=utf-8');
-//     }
-// }
-
-/**
- * 建立並上傳log檔到firebase
- */
-// function create(text, name, type) {
-//     // create logs file
-//     // 使用提供的內容(text)和類型(type)創建Blob對象
-//     var file = new Blob([text], { type: type });
-//     // 創建一個<a>元素來處理文件下載或保存
-//     const a = document.createElement("a");
-//     a.style.display = "none";
-//     // 設置<a>元素的href屬性為Blob對象的URL
-//     a.href = URL.createObjectURL(file);
-//     // a.download = name;
-//     // document.body.appendChild(a);
-//     // a.click();
-
-//     // 初始化Firebase Storage
-//     var storage = firebase.storage();
-//     // 從URL參數中獲取專案名稱
-//     // var projName = urlParams.get("p");
-//     // 創建對應的Firebase Storage參考，用於上傳Blob對象
-//     // var storageRef = storage.ref(`${localStorage.identity}/${classno}/${userno}/Projects/${urlParams.get("p")}/${username}_${urlParams.get("p")}.csv`);
-//     var storageRef = storage.ref(`${classno}/${username}/Projects/${urlParams.get("p")}/${username}_${urlParams.get("p")}.csv`);
-//     // 將Blob對象上傳到Firebase Storage中的特定位置
-//     storageRef.put(file);
-// }
 
 /**
  * 把文字內容上傳到指定的 Firebase Storage 位置
@@ -2759,47 +2711,47 @@ function buildCsvContentForEdit(storedText, logs) {
  * 讀取 Firebase Storage 的 log 檔，
  * 再把目前的 logs 內容合併後上傳覆蓋。
  */
-function getDbFile() {
-    // 如果目前沒有新的 log，直接結束，不要浪費流量下載/上傳
-    if (logs.length === 0) {
-        console.log("沒有新的 Log，跳過儲存");
-        return; 
-    }
-    const projName = urlParams.get("p");
-    const isEditMode = urlParams.get("edit") === "true";
+// function getDbFile() {
+//     // 如果目前沒有新的 log，直接結束，不要浪費流量下載/上傳
+//     if (logs.length === 0) {
+//         console.log("沒有新的 Log，跳過儲存");
+//         return; 
+//     }
+//     const projName = urlParams.get("p");
+//     const isEditMode = urlParams.get("edit") === "true";
 
-    // 1. 準備 Storage 參考
-    const storage = firebase.storage();
-    const logsFileRef = storage.ref(
-        `${classno}/${username}/Projects/${projName}/${username}_${projName}.csv`
-    );
+//     // 1. 準備 Storage 參考
+//     const storage = firebase.storage();
+//     const logsFileRef = storage.ref(
+//         `${classno}/${username}/Projects/${projName}/${username}_${projName}.csv`
+//     );
 
-    // 2. 試著取得下載 URL，判斷有沒有舊檔
-    logsFileRef
-        .getDownloadURL()
-        .then(async (foundURL) => {
-            // ========= 檔案存在：下載舊內容 =========
-            const response = await fetch(foundURL);
-            const storedText = await response.text();
-            // 要寫入的log儲存變數
-            let csvText;
-            csvText = storedText + logs.join(" ");
+//     // 2. 試著取得下載 URL，判斷有沒有舊檔
+//     logsFileRef
+//         .getDownloadURL()
+//         .then(async (foundURL) => {
+//             // ========= 檔案存在：下載舊內容 =========
+//             const response = await fetch(foundURL);
+//             const storedText = await response.text();
+//             // 要寫入的log儲存變數
+//             let csvText;
+//             csvText = storedText + logs.join(" ");
             
-            await uploadCsvToFirebase(logsFileRef, csvText);
-            console.log("儲存成功，清空暫存 Logs");
-            logs = [];
+//             await uploadCsvToFirebase(logsFileRef, csvText);
+//             console.log("儲存成功，清空暫存 Logs");
+//             logs = [];
 
-        })
-        .catch((error) => {
-            // ========= 檔案不存在：第一次儲存 =========
-            console.log("log 檔不存在，建立新的檔案", error.code);
+//         })
+//         .catch((error) => {
+//             // ========= 檔案不存在：第一次儲存 =========
+//             console.log("log 檔不存在，建立新的檔案", error.code);
 
-            const csvText = buildCsvContentForNew(logs);
-            uploadCsvToFirebase(logsFileRef, csvText).then(() => {
-                 logs = []; // ✅ 這裡也要清空
-            });
-        });
-}
+//             const csvText = buildCsvContentForNew(logs);
+//             uploadCsvToFirebase(logsFileRef, csvText).then(() => {
+//                  logs = []; // ✅ 這裡也要清空
+//             });
+//         });
+// }
 // ============================================
 
 //案執行後會記住所有動作的log到localStorage中
