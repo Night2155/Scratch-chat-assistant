@@ -22,7 +22,8 @@ const LogManager = {
     idleTimer: null,      // 閒置計時器
     autoSaveTimer: null,  // 定期存檔計時器
     isIdle: false,        // 目前是否處於閒置狀態
-
+    isRestoring: true,  // 預設為 true (鎖定中)，表示正在載入範例檔，不紀錄 Log
+    
     // --- 初始化 ---
     init: function() {
         console.log("LogManager 初始化...");
@@ -34,25 +35,32 @@ const LogManager = {
     // --- 核心功能：新增紀錄 ---
     // type: 動作類型 (如 "新增積木", "執行", "閒置")
     // details: 詳細內容 (積木名稱、Snaphost、對話內容)
-    add: function(action, details) {
+    // --- 核心功能：新增紀錄 (修正版：加入 code 參數) ---
+    // code: 動作代號 (如 "IS", "EP", "ADD", "DEL", "AI")
+    // action: 動作名稱 (如 "新增積木", "執行專案")
+    // details: 詳細內容
+    add: function(code, action, details) {
         const timestamp = new Date();
         const dateStr = `${timestamp.getFullYear()}/${timestamp.getMonth() + 1}/${timestamp.getDate()}`;
-        const timeStr = `${timestamp.getHours()}:${timestamp.getMinutes()}:${timestamp.getSeconds()}`;
-        
+        const hours = timestamp.getHours().toString().padStart(2, '0');
+        const minutes = timestamp.getMinutes().toString().padStart(2, '0');
+        const seconds = timestamp.getSeconds().toString().padStart(2, '0');
+        const timeStr = `${hours}:${minutes}:${seconds}`;
+
         // 統一取得積木數量 (假設您已有 getBlockCount 函式)
         const blockCount = (typeof getBlockCount === 'function') ? getBlockCount() : 0;
 
         // 組合標準 CSV 格式 (Code, Date, Time, Action, Details, BlockCount)
         // 這裡可以加入一個隨機碼或流水號作為 Code，或留空
-        const logEntry = `\n,${dateStr},${timeStr},${action},${details},${blockCount}`;
+        const logEntry = `\n${code},${dateStr},${timeStr},${action},${details},${blockCount}`;
         
         this.buffer.push(logEntry);
         console.log(`[Log] ${action}: ${details}`);
 
         // 如果使用者有動作，且之前是閒置狀態，記錄「結束閒置」
-        if (this.isIdle && action !== '閒置狀態') {
+        if (this.isIdle && action !== 'IS') {
             this.isIdle = false;
-            this.add('閒置結束', '使用者恢復操作');
+            this.add('IS','閒置結束', '使用者恢復操作');
         }
     },
 
@@ -111,7 +119,7 @@ const LogManager = {
         
         this.idleTimer = setTimeout(() => {
             this.isIdle = true;
-            this.add('閒置狀態', '使用者超過2分鐘無操作');
+            this.add('IS','閒置狀態', '使用者超過2分鐘無操作');
             this.save('閒置儲存');
         }, this.IDLE_LIMIT);
     },
@@ -139,10 +147,22 @@ const LogManager = {
         // 分頁切換監聽
         document.addEventListener("visibilitychange", () => {
             if (document.hidden) {
-                _this.add('分頁切換', '使用者切換到其他視窗');
+                _this.add('PS','分頁切換', '使用者切換到其他視窗');
                 _this.save('分頁切換儲存');
             }
         });
+    },
+
+    // --- 新增控制方法：解除載入鎖定 ---
+    enableLogging: function() {
+        // 稍微延遲一下，確保所有積木都渲染完畢才開啟
+        setTimeout(() => {
+            this.isRestoring = false;
+            console.log("[LogManager] 專案載入完成，開始記錄使用者操作");
+            
+            // 這裡可以選擇性地清空 Buffer，確保乾淨
+            this.buffer = []; 
+        }, 1000);
     }
 };
 // ===============================================
@@ -342,9 +362,10 @@ window.hideLoading = window.revealInterface;
 window.onSb3Loaded = function () {
     flag = true;
     console.log('[script3] sb3 載入成功，準備顯示介面');
-    
-    // 這裡執行顯示介面
+    // 1. 移除遮罩
     window.revealInterface();
+    // 2. 【新增】解除 Log 鎖定，開始記錄學生操作
+    LogManager.enableLogging();
 };
 
 // =====================================================
@@ -405,6 +426,13 @@ $(document).ready(function () {
         console.log("沒有指定專案檔 (新建專案模式)，直接顯示介面");
         // 稍微延遲一下，確保 UI 修改 (removeUI/createUI) 都執行完了再開燈
         setTimeout(window.revealInterface, 500); 
+    }
+    // 檢查是否為新建專案 (沒有指定 sb3)
+    if (!urlParams.get("p") && !urlParams.get("ex") && !urlParams.get("sb3")) {
+        console.log("新建專案模式，直接啟用 Log");
+        
+        window.revealInterface(); // 移除遮罩
+        LogManager.enableLogging(); // 【新增】直接解鎖，因為沒有積木要載入
     }
     // document.body.style.visibility = "visible";
     // const script1 = document.createElement('script');
@@ -893,7 +921,7 @@ async function sendMessage() {
         appendMessage(userMessage, "user");
         document.getElementById("message-input").value = "";
         const response = await getBotResponse(userMessage);
-        LogManager.add("AI_QA", `問:${userMessage} | 答:${response}`);
+        LogManager.add("AI", "AI_QA", `問:${userMessage} | 答:${response}`);
         LogManager.save("對話後儲存");
         setTimeout(() => appendMessage(`${response}`, "bot"), 1000);
     }
@@ -1337,7 +1365,7 @@ function checkExample() {
         // logs.push(`\n${getDate()},${getTime()},改編專案,${ProjName}`);
         // console.log(`${getDate()},${getTime()},建立專案,${ProjName}`);
         // logs.push(`\nCP,${getDate()},${getTime()},建立專案,${ProjName}`);
-        LogManager.add("建立專案", 'code : CP');
+        LogManager.add("建立專案", 'code : CP'); // 這邊要修改
     }
     // document.getElementsByClassName('menu-bar_title-field-growable_3qr4G')[0].value = ProjName;
     // document.getElementsByClassName('menu-bar_title-field-growable_3qr4G')[0].setAttribute('value', ProjName);
@@ -1758,7 +1786,7 @@ function clickUI(targetElement) {
         // logs.push(`\n${getDate()},${getTime()},執行,點擊執行旗幟`);
 
         const snapshot = getWorkspaceContext(); // 取得快照
-        LogManager.add("執行專案", snapshot.replace(/\n/g, ' | '));
+        LogManager.add("EP", "執行專案", snapshot.replace(/\n/g, ' | '));
         LogManager.save("執行時立即儲存"); // 重要時刻立即存
         // saveLastWorkSpace();
         // Object.keys(localStorage).forEach(function (key) {
@@ -1777,7 +1805,7 @@ function clickUI(targetElement) {
     if (targetElement.className == "stop-all_stop-all_1Y8P9") {
         // record click stop icon
         // logs.push(`\nCP,${getDate()},${getTime()},暫停,點擊暫停`);
-        LogManager.add("CP 暫停", "點擊暫停按鍵");
+        LogManager.add("CP", "暫停", "點擊暫停按鍵");
         console.log("stop");
         console.log(getDate() + "," + getTime());
     }
@@ -1796,7 +1824,7 @@ function clickSprite(targetElement) {
         console.log("(刪除角色)");
         console.log(getDate() + "," + getTime());
         // logs.push(`\nRR,${getDate()},${getTime()},刪除角色,刪除角色`);
-        LogManager.add("RR", "刪除角色");
+        LogManager.add("RR", "刪除角色", "使用者刪除角色");
     }
 
     // if click sprite img to chang sprite's workspace will run this code
@@ -1819,8 +1847,8 @@ function clickSprite(targetElement) {
         console.log(getDate() + "," + getTime());
         // logs.push(`\nCR,${getDate()},${getTime()},切換角色,切換角色`);
         // logs.push(`\nWC,${getDate()},${getTime()},畫布變更,`);
-        LogManager.add("CR", "切換角色");
-        LogManager.add("WC", "畫布變更");
+        LogManager.add("CR", "切換角色", "切換角色");
+        LogManager.add("WC", "畫布變更", "畫布變更");
         if (
             document.getElementsByClassName("blocklyBlockCanvas")[0].childNodes
                 .length != 0
@@ -1861,7 +1889,7 @@ function clickSprite(targetElement) {
     ) {
         console.log("(新增角色)");
         logs.push(`\nCR,${getDate()},${getTime()},新增角色,新增角色`);
-        LogManager.add("CR 新增角色", "新增角色");
+        LogManager.add("CR", "新增角色", "新增角色");
         console.log(getDate() + "," + getTime());
         //(後)saveLastWorkSpace();
     }
@@ -2529,6 +2557,9 @@ window.isProjectLoading = true; // 預設為正在載入中
  * - 將變更積木區的紀錄放入陣列
  */
 function handleBlockEvent(event) {
+    // 1. 如果正在載入範例檔，直接忽略所有事件，不紀錄
+    if (LogManager.isRestoring) return;
+
     const workspace = Blockly.getMainWorkspace();
     const userId = localStorage.username || "guest";
     const now = `${getDate()} ${getTime()}`;
@@ -2548,7 +2579,7 @@ function handleBlockEvent(event) {
 
         console.log(`🟩 新增積木：${blockType}`);
         // pushLog("新增積木", blockType);
-        LogManager.add("新增積木", blockType);
+        LogManager.add("ADD", "新增積木", blockType);
         // logs.push(`${getDate()},${getTime()},新增積木,${blockType}`);
         updateBlockStats(workspace);
         if (isExperimentGroup()) checkExperimentCondition();
@@ -2569,7 +2600,7 @@ function handleBlockEvent(event) {
         // CSV 如果要寫陣列 → 用 | 連接
         const details = deletedStackTypes.join("|") || "unknown";
         // pushLog("刪除積木", details);
-        LogManager.add("刪除積木", details);
+        LogManager.add("DEL", "刪除積木", details);
         // logs.push(`${getDate()},${getTime()},刪除積木,${deletedStackTypes.join('|')}`);
         // 上傳到 Firebase 的紀錄（整疊）
         // uploadLogToFirebase(userId, {
